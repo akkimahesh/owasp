@@ -1,28 +1,35 @@
-- name: Create automation.yaml
-  run: |
-    mkdir -p zap
+env:
+  contexts:
+    - name: QA
+      urls:
+        - https://dev-ui.schneider.xrdashboard.com
 
-    cat > zap/automation.yaml <<EOF
-    env:
-      contexts:
-        - name: QA
-          urls:
-            - https://dev-ui.schneider.xrdashboard.com
+      authentication:
+        method: form
+        parameters:
+          loginPageUrl: "https://dev-ui.schneider.xrdashboard.com/login/Schneider"
+          loginRequestUrl: "https://dev-ui.schneider.xrdashboard.com/login/Schneider"
+          loginRequestBody: "email=${{ secrets.APP_USERNAME }}&password=${{ secrets.APP_PASSWORD }}"
 
-          authentication:
-            method: form
-            parameters:
-              loginPageUrl: "https://dev-ui.schneider.xrdashboard.com/login/Schneider"
-              loginRequestUrl: "https://dev-ui.schneider.xrdashboard.com/login/Schneider"
-              loginRequestBody: "email=${{ secrets.APP_USERNAME }}&password=${{ secrets.APP_PASSWORD }}"
+      sessionManagement:
+        method: cookie
 
-          sessionManagement:
-            method: cookie
+      users:
+        - name: zap-user
 
-      jobs:
-        - type: spider
-        - type: activeScan
-        - type: report
-          parameters:
-            reportFile: report.html
-    EOF
+jobs:
+  - type: spider
+    parameters:
+      context: QA
+      user: zap-user
+
+  - type: activeScan
+    parameters:
+      context: QA
+      user: zap-user
+
+  - type: report
+    parameters:
+      reportDir: /zap/wrk
+      reportFile: report.html
+      template: traditional-html
