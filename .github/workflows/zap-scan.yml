@@ -4,29 +4,97 @@ on:
   workflow_dispatch:
 
 jobs:
+
   zap-scan:
+
     runs-on: ubuntu-latest
 
+    env:
+      APP_USERNAME: ${{ secrets.APP_USERNAME }}
+      APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
+
     steps:
-      - name: Checkout Repository
+
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # If your application is deployed in a previous job,
-      # replace this with a proper health check.
-      - name: Wait for application
-        run: |
-          sleep 30
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
-      - name: Run OWASP ZAP
+      - name: Install Playwright
+        working-directory: playwright
         run: |
-          docker run --rm \
-            -v ${{ github.workspace }}/zap:/zap/wrk:rw \
+          npm install
+          npx playwright install chromium
+
+      - name: Start ZAP
+        run: |
+          docker run -d \
+            --name zap \
+            -p 8080:8080 \
             ghcr.io/zaproxy/zaproxy:stable \
-            zap.sh -cmd \
-            -autorun /zap/wrk/automation.yaml
+            zap.sh \
+            -daemon \
+            -host 0.0.0.0 \
+            -port 8080 \
+            -config api.disablekey=true
 
-      - name: Upload ZAP Report
+      - name: Wait for ZAP
+        run: |
+          echo "Waiting for ZAP..."
+          sleep 25
+
+      - name: Verify ZAP
+        run: |
+          curl http://localhost:8080/JSON/core/view/version/
+
+      - name: Login using Playwright
+        working-directory: playwright
+        run: |
+          npm run login
+
+      - name: Show URLs captured by ZAP
+        run: |
+          curl "http://localhost:8080/JSON/core/view/urls/"
+
+      - name: Start Spider
+        run: |
+          curl "http://localhost:8080/JSON/spider/action/scan/?url=https://dev-ui.schneider.xrdashboard.com"
+
+      - name: Wait for Spider
+        run: |
+          while true
+          do
+            STATUS=$(curl -s "http://localhost:8080/JSON/spider/view/status/" | jq -r '.status')
+            echo "Spider: $STATUS%"
+            [ "$STATUS" = "100" ] && break
+            sleep 10
+          done
+
+      - name: Start Active Scan
+        run: |
+          curl "http://localhost:8080/JSON/ascan/action/scan/?url=https://dev-ui.schneider.xrdashboard.com"
+
+      - name: Wait for Active Scan
+        run: |
+          while true
+          do
+            STATUS=$(curl -s "http://localhost:8080/JSON/ascan/view/status/" | jq -r '.status')
+            echo "Active Scan: $STATUS%"
+            [ "$STATUS" = "100" ] && break
+            sleep 20
+          done
+
+      - name: Generate Report
+        run: |
+          mkdir -p zap/reports
+          curl "http://localhost:8080/OTHER/core/other/htmlreport/" \
+            -o zap/reports/report.html
+
+      - name: Upload Report
         uses: actions/upload-artifact@v4
         with:
           name: zap-report
-          path: zap/report.html
+          path: zap/reports/report.html

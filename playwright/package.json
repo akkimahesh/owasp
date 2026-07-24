@@ -1,0 +1,10 @@
+{
+  "name": "zap-playwright",
+  "version": "1.0.0",
+  "scripts": {
+    "login": "node login.js"
+  },
+  "dependencies": {
+    "playwright": "^1.55.0"
+  }
+}
