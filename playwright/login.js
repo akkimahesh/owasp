@@ -1,29 +1,27 @@
-const { chromium } = require('playwright');
+const { chromium } = require("playwright");
 
 (async () => {
 
-    const browser = await chromium.launch({
-        headless: true,
-        proxy: {
-            server: "http://127.0.0.1:8080"
-        }
-    });
+  const browser = await chromium.launch({
+    headless: true,
+    proxy: {
+      server: "http://127.0.0.1:8080"
+    }
+  });
 
-    const page = await browser.newPage();
+  const page = await browser.newPage();
 
-    await page.goto("https://dev-ui.schneider.xrdashboard.com/login/Schneider");
+  await page.goto("https://dev-ui.schneider.xrdashboard.com/login/Schneider");
 
-    await page.fill('input[type="email"]', process.env.APP_USERNAME);
-    await page.fill('input[type="password"]', process.env.APP_PASSWORD);
+  await page.fill('input[type="email"]', process.env.APP_USERNAME);
+  await page.fill('input[type="password"]', process.env.APP_PASSWORD);
 
-    await page.click('button[type="submit"]');
+  await page.click('button[type="submit"]');
 
-    await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("networkidle");
 
-    console.log("Current URL:", page.url());
+  console.log("Current URL:", page.url());
 
-    console.log("Login Success");
-
-    await browser.close();
+  await browser.close();
 
 })();
