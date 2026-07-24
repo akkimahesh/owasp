@@ -4,9 +4,7 @@ on:
   workflow_dispatch:
 
 jobs:
-
   zap-scan:
-
     runs-on: ubuntu-latest
 
     env:
@@ -14,19 +12,23 @@ jobs:
       APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
 
     steps:
-
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: "20"
+
+      - name: Install jq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
 
       - name: Install Playwright
         working-directory: playwright
         run: |
-          npm install
+          npm ci
           npx playwright install chromium
 
       - name: Start ZAP
@@ -39,62 +41,100 @@ jobs:
             -daemon \
             -host 0.0.0.0 \
             -port 8080 \
-            -config api.disablekey=true
+            -config api.disablekey=true \
+            -config api.addrs.addr.name=.* \
+            -config api.addrs.addr.regex=true
+
+      - name: Show Docker Containers
+        run: docker ps -a
 
       - name: Wait for ZAP
         run: |
           echo "Waiting for ZAP..."
-          sleep 25
 
-      - name: Verify ZAP
+          for i in {1..90}; do
+
+            if curl -s http://127.0.0.1:8080/JSON/core/view/version/ > /dev/null; then
+              echo "ZAP Started Successfully"
+              exit 0
+            fi
+
+            echo "Attempt $i"
+            docker logs zap --tail 5 || true
+            sleep 2
+
+          done
+
+          echo "===== ZAP FAILED TO START ====="
+          docker logs zap
+          exit 1
+
+      - name: Verify ZAP API
         run: |
-          curl http://localhost:8080/JSON/core/view/version/
+          curl http://127.0.0.1:8080/JSON/core/view/version/
 
-      - name: Login using Playwright
+      - name: Login through Playwright
         working-directory: playwright
         run: |
           npm run login
 
-      - name: Show URLs captured by ZAP
+      - name: Display URLs Captured
         run: |
-          curl "http://localhost:8080/JSON/core/view/urls/"
+          curl http://127.0.0.1:8080/JSON/core/view/urls/
 
       - name: Start Spider
         run: |
-          curl "http://localhost:8080/JSON/spider/action/scan/?url=https://dev-ui.schneider.xrdashboard.com"
+          curl "http://127.0.0.1:8080/JSON/spider/action/scan/?url=https://dev-ui.schneider.xrdashboard.com"
 
       - name: Wait for Spider
         run: |
           while true
           do
-            STATUS=$(curl -s "http://localhost:8080/JSON/spider/view/status/" | jq -r '.status')
-            echo "Spider: $STATUS%"
-            [ "$STATUS" = "100" ] && break
-            sleep 10
+            STATUS=$(curl -s http://127.0.0.1:8080/JSON/spider/view/status/ | jq -r '.status')
+            echo "Spider Progress : $STATUS %"
+
+            if [ "$STATUS" = "100" ]; then
+              break
+            fi
+
+            sleep 5
           done
 
       - name: Start Active Scan
         run: |
-          curl "http://localhost:8080/JSON/ascan/action/scan/?url=https://dev-ui.schneider.xrdashboard.com"
+          curl "http://127.0.0.1:8080/JSON/ascan/action/scan/?url=https://dev-ui.schneider.xrdashboard.com"
 
       - name: Wait for Active Scan
         run: |
           while true
           do
-            STATUS=$(curl -s "http://localhost:8080/JSON/ascan/view/status/" | jq -r '.status')
-            echo "Active Scan: $STATUS%"
-            [ "$STATUS" = "100" ] && break
-            sleep 20
+            STATUS=$(curl -s http://127.0.0.1:8080/JSON/ascan/view/status/ | jq -r '.status')
+            echo "Active Scan : $STATUS %"
+
+            if [ "$STATUS" = "100" ]; then
+              break
+            fi
+
+            sleep 10
           done
 
-      - name: Generate Report
+      - name: Create Report Directory
+        run: mkdir -p zap/reports
+
+      - name: Generate HTML Report
         run: |
-          mkdir -p zap/reports
-          curl "http://localhost:8080/OTHER/core/other/htmlreport/" \
-            -o zap/reports/report.html
+          curl http://127.0.0.1:8080/OTHER/core/other/htmlreport/ \
+          --output zap/reports/report.html
 
       - name: Upload Report
         uses: actions/upload-artifact@v4
         with:
           name: zap-report
           path: zap/reports/report.html
+
+      - name: Stop ZAP
+        if: always()
+        run: |
+          docker logs zap || true
+          docker stop zap || true
+          docker rm zap || true
