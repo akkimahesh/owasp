@@ -102,7 +102,7 @@ jobs:
 
       - name: Start Active Scan
         run: |
-          curl "http://127.0.0.1:8080/JSON/ascan/action/scan/?url=https://dev-ui.schneider.xrdashboard.com"
+          curl "http://127.0.0.1:8080/JSON/ascan/action/scan/?url=http://devopswithmahesh.shop"
 
       - name: Wait for Active Scan
         run: |
