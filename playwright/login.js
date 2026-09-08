@@ -15,7 +15,7 @@ const { chromium } = require("playwright");
 
     const page = await context.newPage();
 
-    await page.goto("http://devopswithmahesh.shop/api/auth/login");
+    await page.goto("http://devopswithmahesh.shop/");
 
     await page.fill('input[type="email"]', process.env.APP_USERNAME);
     await page.fill('input[type="password"]', process.env.APP_PASSWORD);
