@@ -84,7 +84,7 @@ jobs:
 
       - name: Start Spider
         run: |
-          curl "http://127.0.0.1:8080/JSON/spider/action/scan/?url=https://dev-ui.schneider.xrdashboard.com"
+          curl "http://127.0.0.1:8080/JSON/spider/action/scan/?url=http://devopswithmahesh.shop"
 
       - name: Wait for Spider
         run: |
