@@ -15,8 +15,8 @@
           authentication:
             method: form
             parameters:
-              loginPageUrl: "https://dev-ui.schneider.xrdashboard.com/login/Schneider"
-              loginRequestUrl: "https://dev-ui.schneider.xrdashboard.com/login/Schneider"
+              loginPageUrl: "http://devopswithmahesh.shop/api/auth/login"
+              loginRequestUrl: "http://devopswithmahesh.shop/api/auth/login"
               loginRequestBody: "email=$APP_USERNAME&password=$APP_PASSWORD"
 
           sessionManagement:
